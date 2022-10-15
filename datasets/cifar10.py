@@ -79,6 +79,7 @@ class CIFAR10_LT(object):
         
         
         train_dataset = IMBALANCECIFAR10(root=root, imb_type=imb_type, imb_factor=imb_factor, rand_number=0, train=True, download=True, transform=train_transform)
+        lda_dataset = IMBALANCECIFAR10(root=root, imb_type=imb_type, imb_factor=imb_factor, rand_number=0, train=True, download=True, transform=eval_transform)
         eval_dataset = torchvision.datasets.CIFAR10(root=root, train=False, download=True, transform=eval_transform)
         
         self.cls_num_list = train_dataset.get_cls_num_list()
@@ -99,3 +100,9 @@ class CIFAR10_LT(object):
             eval_dataset,
             batch_size=batch_size, shuffle=False,
             num_workers=num_works, pin_memory=True)
+
+        self.lda_sampler = torch.utils.data.distributed.DistributedSampler(lda_dataset) if distributed else None
+        self.lda = torch.utils.data.DataLoader(
+            lda_dataset,
+            batch_size=batch_size, shuffle=True,
+            num_workers=num_works, pin_memory=True, sampler=self.lda_sampler)

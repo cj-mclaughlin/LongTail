@@ -1,0 +1,132 @@
+2022-10-13 14:27:15,570 
+Namespace(cfg='./config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'cifar10_imb001_stage1_mixup10.pth.tar'])
+2022-10-13 14:27:15,570 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: cifar10_imb001_stage1_mixup10.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-13 14:27:17,956 => loading checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar'
+2022-10-13 14:27:17,971 => loaded checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar' (epoch 200)
+2022-10-13 14:27:21,061 Eval: [ 0/79]	Time  0.627 ( 0.627)	Loss 0.861 (0.861)	Acc@1 75.000 (75.000)	Acc@5 96.875 (96.875)
+2022-10-13 14:27:21,287 Eval: [40/79]	Time  0.005 ( 0.021)	Loss 0.981 (0.946)	Acc@1 75.000 (74.619)	Acc@5 95.312 (94.989)
+2022-10-13 14:27:21,524 * Acc@1 74.030% Acc@5 94.830% HAcc 94.567% MAcc 74.850% TAcc 52.400%.
+2022-10-13 14:27:21,525 * ECE   7.761%.
+2022-10-13 14:27:42,660 
+Namespace(cfg='./config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'cifar10_imb001_stage1_mixup10.pth.tar'])
+2022-10-13 14:27:42,661 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: cifar10_imb001_stage1_mixup10.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-13 14:27:44,975 => loading checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar'
+2022-10-13 14:27:44,986 => loaded checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar' (epoch 200)
+2022-10-13 14:27:48,041 Eval: [ 0/79]	Time  0.640 ( 0.640)	Loss 0.871 (0.871)	Acc@1 75.000 (75.000)	Acc@5 96.094 (96.094)
+2022-10-13 14:27:48,255 Eval: [40/79]	Time  0.004 ( 0.021)	Loss 0.980 (0.950)	Acc@1 75.000 (74.390)	Acc@5 94.531 (94.912)
+2022-10-13 14:27:48,486 * Acc@1 73.840% Acc@5 94.840% HAcc 94.133% MAcc 75.225% TAcc 51.700%.
+2022-10-13 14:27:48,487 * ECE   8.021%.
+2022-10-13 14:27:58,788 
+Namespace(cfg='./config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'cifar10_imb001_stage1_mixup10.pth.tar'])
+2022-10-13 14:27:58,789 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: cifar10_imb001_stage1_mixup10.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-13 14:28:01,109 => loading checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar'
+2022-10-13 14:28:01,121 => loaded checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar' (epoch 200)
+2022-10-13 14:28:04,204 Eval: [ 0/79]	Time  0.655 ( 0.655)	Loss 0.876 (0.876)	Acc@1 74.219 (74.219)	Acc@5 96.875 (96.875)
+2022-10-13 14:28:04,425 Eval: [40/79]	Time  0.005 ( 0.021)	Loss 0.990 (0.960)	Acc@1 74.219 (74.276)	Acc@5 94.531 (94.931)
+2022-10-13 14:28:04,659 * Acc@1 73.720% Acc@5 94.790% HAcc 94.500% MAcc 74.650% TAcc 51.700%.
+2022-10-13 14:28:04,660 * ECE   7.840%.

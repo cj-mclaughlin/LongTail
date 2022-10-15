@@ -1,0 +1,88 @@
+2022-10-13 14:38:17,514 
+Namespace(cfg='./config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'cifar10_imb001_stage1_mixup10.pth.tar'])
+2022-10-13 14:38:17,515 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: cifar10_imb001_stage1_mixup10.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-13 14:38:19,890 => loading checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar'
+2022-10-13 14:38:19,903 => loaded checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar' (epoch 200)
+2022-10-13 14:38:22,961 Eval: [ 0/79]	Time  0.637 ( 0.637)	Loss 0.867 (0.867)	Acc@1 73.438 (73.438)	Acc@5 96.875 (96.875)
+2022-10-13 14:38:23,192 Eval: [40/79]	Time  0.007 ( 0.021)	Loss 0.983 (0.954)	Acc@1 75.000 (74.371)	Acc@5 95.312 (94.950)
+2022-10-13 14:38:23,441 * Acc@1 73.800% Acc@5 94.910% HAcc 94.567% MAcc 74.500% TAcc 52.100%.
+2022-10-13 14:38:23,442 * ECE   7.742%.
+2022-10-13 14:38:26,932 
+Namespace(cfg='./config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'cifar10_imb001_stage1_mixup10.pth.tar'])
+2022-10-13 14:38:26,933 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: cifar10_imb001_stage1_mixup10.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-13 14:38:29,283 => loading checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar'
+2022-10-13 14:38:29,296 => loaded checkpoint 'cifar10_imb001_stage1_mixup10.pth.tar' (epoch 200)
+2022-10-13 14:38:32,419 Eval: [ 0/79]	Time  0.671 ( 0.671)	Loss 0.841 (0.841)	Acc@1 74.219 (74.219)	Acc@5 96.094 (96.094)
+2022-10-13 14:38:32,637 Eval: [40/79]	Time  0.005 ( 0.022)	Loss 0.969 (0.926)	Acc@1 75.000 (75.019)	Acc@5 95.312 (94.989)
+2022-10-13 14:38:32,874 * Acc@1 74.340% Acc@5 94.980% HAcc 94.433% MAcc 75.000% TAcc 53.367%.
+2022-10-13 14:38:32,875 * ECE   7.668%.
