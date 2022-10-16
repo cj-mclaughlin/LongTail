@@ -5,6 +5,7 @@ import time
 import warnings
 import numpy as np
 import pprint
+from sklearn.linear_model import LogisticRegression
 
 import torch
 import torch.nn as nn
@@ -33,6 +34,9 @@ from utils import accuracy, calibration
 
 from methods import LearnableWeightScaling
 
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 def parse_args():
     parser = argparse.ArgumentParser(description='MiSLAS evaluation')
@@ -243,11 +247,18 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
     features = np.concatenate(features, axis=0)
     labels = np.concatenate(labels, axis=0)
 
+    # lda_sklearn = LinearDiscriminantAnalysis(solver="eigen", priors=([1/10]*10))
+    # lda_sklearn = LogisticRegression()
+    # lda_sklearn.fit(features, labels)
+
     features = torch.from_numpy(features).cuda()
     labels = torch.from_numpy(labels).cuda()
-    lda = LDA(n_classes=10, lamb=1e-3)
+    lda = LDA(n_classes=10, lamb=1e-4)
     lda.forward(features, labels)
-    lda = None
+
+    # lda.coef_ = torch.from_numpy(lda_sklearn.coef_).cuda().float()
+    # lda.intercept_ = torch.from_numpy(lda_sklearn.intercept_).cuda().float()
+    # lda = None
     
     validate(val_loader, model, classifier, lws_model, criterion, config, logger, block, lda=lda)
 
@@ -330,6 +341,33 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
 
         cal = calibration(true_class, pred_class, confidence, num_bins=15)
         logger.info('* ECE   {ece:.3f}%.'.format(ece=cal['expected_calibration_error'] * 100))
+
+        model_name = config.resume.split(".")[0]
+        w = classifier.module.fc.weight.cpu().numpy()
+        w = w / np.linalg.norm(w, axis=1, ord=2, keepdims=True)
+        norms = []
+        for d in range(w.shape[0]):
+            norms.append(np.linalg.norm(w[d], ord=2))
+        print(np.mean(norms), np.std(norms))
+        wwt = w.dot(w.T)
+        sns.heatmap(wwt, cbar=False, annot=True)
+        plt.title("Softmax Classifier WWT (l2-normed)")
+        plt.savefig(model_name+"softmax.png")
+        plt.show()
+
+        if lda is not None:
+            w_lda = lda.coef_.cpu().numpy()
+            w_lda = w_lda / np.linalg.norm(w_lda, axis=1, ord=2, keepdims=True)
+            norms = []
+            for d in range(w.shape[0]):
+                norms.append(np.linalg.norm(w_lda[d], ord=2))
+            print(np.mean(norms), np.std(norms))
+            wwt_lda = w_lda.dot(w_lda.T)
+            sns.heatmap(wwt_lda, cbar=False, annot=True)
+            plt.title("LDA WWT (l2-normed)")
+            plt.savefig(model_name+"lda.png")
+            plt.show()
+
 
     return top1.avg, cal['expected_calibration_error'] * 100
 

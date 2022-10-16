@@ -241,7 +241,7 @@ def lda(X, y, n_classes, lamb):
         # Xg_bar = Xg - Xg_mean[int(c), :]
         Xg = X[y == c]                                                                  # [None, d]
         Xg_bar = Xg - torch.mean(Xg, dim=0, keepdim=True)                               # [None, d]
-        Sw = Sw + (Xg_bar.T.matmul(Xg_bar) / Nc)
+        Sw = Sw + (Xg_bar.T.matmul(Xg_bar) / (Nc-1))
     Sw /= n_classes
     Sb = St - Sw  # between scatter matrix
 
@@ -279,6 +279,7 @@ class LDA(nn.Module):
         hasComplexEVal, Xc_mean, evals, evecs = self.lda_layer(X, y)  # CxD, D, DxD
 
         # compute LDA statistics
+        self.mean = Xc_mean
         self.scalings_ = evecs  # projection matrix, DxD
         self.coef_ = Xc_mean.matmul(evecs).matmul(evecs.t())  # CxD
         self.intercept_ = -0.5 * torch.diagonal(Xc_mean.matmul(self.coef_.t())) # C

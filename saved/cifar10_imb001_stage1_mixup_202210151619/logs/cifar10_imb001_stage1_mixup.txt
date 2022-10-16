@@ -1,0 +1,88 @@
+2022-10-15 16:19:36,535 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:19:36,535 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:19:39,198 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:19:39,218 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
+2022-10-15 16:19:41,731 Eval: [ 0/79]	Time  0.786 ( 0.786)	Loss 0.895 (0.895)	Acc@1 75.000 (75.000)	Acc@5 96.875 (96.875)
+2022-10-15 16:19:41,964 Eval: [40/79]	Time  0.005 ( 0.025)	Loss 0.934 (1.053)	Acc@1 73.438 (72.828)	Acc@5 96.094 (94.245)
+2022-10-15 16:19:42,244 * Acc@1 72.240% Acc@5 94.350% HAcc 94.633% MAcc 75.425% TAcc 45.600%.
+2022-10-15 16:19:42,245 * ECE   2.179%.
+2022-10-15 16:19:55,790 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:19:55,791 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:19:58,465 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:19:58,486 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
+2022-10-15 16:20:00,896 Eval: [ 0/79]	Time  0.784 ( 0.784)	Loss 0.895 (0.895)	Acc@1 75.000 (75.000)	Acc@5 96.875 (96.875)
+2022-10-15 16:20:01,151 Eval: [40/79]	Time  0.005 ( 0.025)	Loss 0.934 (1.053)	Acc@1 73.438 (72.828)	Acc@5 96.094 (94.245)
+2022-10-15 16:20:01,427 * Acc@1 72.240% Acc@5 94.350% HAcc 94.633% MAcc 75.425% TAcc 45.600%.
+2022-10-15 16:20:01,428 * ECE   2.179%.

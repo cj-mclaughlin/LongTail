@@ -1,0 +1,132 @@
+2022-10-15 16:40:00,115 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:40:00,116 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:40:02,995 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:40:03,016 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
+2022-10-15 16:40:06,615 Eval: [ 0/79]	Time  0.555 ( 0.555)	Loss 5.216 (5.216)	Acc@1 82.031 (82.031)	Acc@5 96.875 (96.875)
+2022-10-15 16:40:06,870 Eval: [40/79]	Time  0.005 ( 0.020)	Loss 7.757 (9.462)	Acc@1 77.344 (77.877)	Acc@5 94.531 (92.416)
+2022-10-15 16:40:07,141 * Acc@1 77.820% Acc@5 92.460% HAcc 92.967% MAcc 80.725% TAcc 58.800%.
+2022-10-15 16:40:07,142 * ECE   21.214%.
+2022-10-15 16:40:20,508 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:40:20,508 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:40:23,056 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:40:23,076 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
+2022-10-15 16:40:26,596 Eval: [ 0/79]	Time  0.549 ( 0.549)	Loss 10.643 (10.643)	Acc@1 78.125 (78.125)	Acc@5 90.625 (90.625)
+2022-10-15 16:40:26,842 Eval: [40/79]	Time  0.008 ( 0.019)	Loss 16.260 (19.508)	Acc@1 75.000 (75.629)	Acc@5 92.188 (88.338)
+2022-10-15 16:40:27,112 * Acc@1 75.310% Acc@5 88.400% HAcc 93.900% MAcc 78.475% TAcc 52.500%.
+2022-10-15 16:40:27,113 * ECE   23.743%.
+2022-10-15 16:40:58,021 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:40:58,021 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:41:00,588 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:41:00,607 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
+2022-10-15 16:41:04,174 Eval: [ 0/79]	Time  0.581 ( 0.581)	Loss 11.167 (11.167)	Acc@1 78.125 (78.125)	Acc@5 90.625 (90.625)
+2022-10-15 16:41:04,427 Eval: [40/79]	Time  0.007 ( 0.020)	Loss 16.742 (20.103)	Acc@1 73.438 (75.248)	Acc@5 91.406 (88.224)
+2022-10-15 16:41:04,695 * Acc@1 74.880% Acc@5 88.230% HAcc 93.900% MAcc 77.950% TAcc 51.767%.
+2022-10-15 16:41:04,696 * ECE   24.203%.

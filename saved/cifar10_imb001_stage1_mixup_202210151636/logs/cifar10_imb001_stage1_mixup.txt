@@ -1,0 +1,80 @@
+2022-10-15 16:36:01,854 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:36:01,854 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:36:04,662 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:36:04,683 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
+2022-10-15 16:36:45,241 
+Namespace(cfg='config/cifar10/cifar10_imb001_stage1_mixup.yaml', opts=['resume', 'saved/mixup.pth.tar'])
+2022-10-15 16:36:45,241 
+alpha: 1.0
+backbone: resnet32_fe
+batch_size: 128
+cos: False
+data_path: ./data/cifar10
+dataset: cifar10
+deterministic: False
+dist_backend: nccl
+dist_url: tcp://224.66.41.62:23456
+distributed: False
+gpu: None
+head_class_idx: [0, 3]
+imb_factor: 0.01
+log_dir: logs
+lr: 0.1
+lr_factor: None
+med_class_idx: [3, 7]
+mixup: True
+mode: stage1
+model_dir: ckps
+momentum: 0.9
+multiprocessing_distributed: False
+name: cifar10_imb001_stage1_mixup
+num_classes: 10
+num_epochs: 200
+print_freq: 40
+rank: -1
+resume: saved/mixup.pth.tar
+shift_bn: False
+smooth_head: None
+smooth_tail: None
+tail_class_idx: [7, 10]
+weight_decay: 0.0002
+workers: 16
+world_size: -1
+2022-10-15 16:36:47,816 => loading checkpoint 'saved/mixup.pth.tar'
+2022-10-15 16:36:47,836 => loaded checkpoint 'saved/mixup.pth.tar' (epoch 200)
