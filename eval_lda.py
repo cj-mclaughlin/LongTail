@@ -247,14 +247,16 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
     features = np.concatenate(features, axis=0)
     labels = np.concatenate(labels, axis=0)
 
-    # lda_sklearn = LinearDiscriminantAnalysis(solver="eigen", priors=([1/10]*10))
-    # lda_sklearn = LogisticRegression()
-    # lda_sklearn.fit(features, labels)
 
     features = torch.from_numpy(features).cuda()
     labels = torch.from_numpy(labels).cuda()
     lda = LDA(n_classes=10, lamb=1e-4)
     lda.forward(features, labels)
+
+
+    # lda_sklearn = LinearDiscriminantAnalysis(solver="eigen", priors=([1/10]*10))
+    # lda_sklearn = LogisticRegression()
+    # lda_sklearn.fit(features, labels)
 
     # lda.coef_ = torch.from_numpy(lda_sklearn.coef_).cuda().float()
     # lda.intercept_ = torch.from_numpy(lda_sklearn.intercept_).cuda().float()
