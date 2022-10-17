@@ -1,4 +1,5 @@
 import argparse
+from logging import critical
 import os
 import random
 from sched import scheduler
@@ -8,7 +9,6 @@ import warnings
 import numpy as np
 import pprint
 import math
-from pyroapi import optim
 
 import torch
 import torch.nn as nn
@@ -19,6 +19,7 @@ import torch.multiprocessing as mp
 import torch.utils.data
 import torch.utils.data.distributed
 import torch.nn.functional as F
+from cb_loss import CB_loss
 
 from datasets.cifar10 import CIFAR10_LT
 from datasets.cifar100 import CIFAR100_LT
@@ -36,6 +37,21 @@ from utils import accuracy, calibration
 
 from methods import mixup_data, mixup_criterion
 from methods import LabelAwareSmoothing, LearnableWeightScaling
+from lda import LDA
+
+import torch.nn.functional as F
+
+class DistillKL(nn.Module):
+    """Distilling the Knowledge in a Neural Network"""
+    def __init__(self, T):
+        super(DistillKL, self).__init__()
+        self.T = T
+
+    def forward(self, y_s, y_t):
+        p_s = F.log_softmax(y_s/self.T, dim=1)
+        p_t = F.softmax(y_t/self.T, dim=1)
+        loss = F.kl_div(p_s, p_t, size_average=False) * (self.T**2) / y_s.shape[0]
+        return loss
 
 
 def parse_args():
@@ -119,6 +135,12 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
     if config.dataset == 'cifar10' or config.dataset == 'cifar100':
         model = getattr(resnet_cifar, config.backbone)()
         classifier = getattr(resnet_cifar, 'Classifier')(feat_in=64, num_classes=config.num_classes)
+        # classifier = nn.Sequential(
+        #     nn.Linear(32, 32, bias=False),
+        #     nn.LayerNorm(32),
+        #     nn.ReLU(),
+        #     nn.Linear(32, config.num_classes)
+        # )
 
     elif config.dataset == 'imagenet' or config.dataset == 'ina2018':
         model = getattr(resnet, config.backbone)()
@@ -200,7 +222,7 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
                 # best_acc1 may be from a checkpoint from a different GPU
                 best_acc1 = best_acc1.to(config.gpu)
             model.load_state_dict(checkpoint['state_dict_model'])
-            classifier.load_state_dict(checkpoint['state_dict_classifier'])
+            # classifier.load_state_dict(checkpoint['state_dict_classifier'])
             if config.dataset == 'places':
                 block.load_state_dict(checkpoint['state_dict_block'])
             logger.info("=> loaded checkpoint '{}' (epoch {})"
@@ -237,25 +259,52 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
 
     # define loss function (criterion) and optimizer
 
-    criterion = LabelAwareSmoothing(cls_num_list=cls_num_list, smooth_head=config.smooth_head,
-                                    smooth_tail=config.smooth_tail).cuda(config.gpu)
+    # criterion = LabelAwareSmoothing(cls_num_list=cls_num_list, smooth_head=config.smooth_head,
+    #                                 smooth_tail=config.smooth_tail).cuda(config.gpu)
 
+    cls_dist = np.unique(train_loader.dataset.targets, return_counts=True)[1]
+    # criterion = lambda x, y: CB_loss(logits=x, labels=y, samples_per_cls=cls_dist, no_of_classes=10, loss_type="softmax", beta=0.9999, gamma=2.0)
+    criterion = nn.CrossEntropyLoss()
+    # criterion = lambda x, y: 0
+    
     optimizer = torch.optim.SGD([{"params": classifier.parameters()},
-                                {'params': lws_model.parameters()}], config.lr,
+                                ], config.lr,
                                 momentum=config.momentum,
                                 weight_decay=config.weight_decay)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=config.num_epochs*(len(train_loader)//config.batch_size))
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer=optimizer, T_max=config.num_epochs*(len(train_loader)//config.batch_size), eta_min=0)
+
+    lda_loader = dataset.lda
+    model.eval()
+    features = []
+    labels = []
+    with torch.no_grad():
+        for i, (images, target) in enumerate(lda_loader):
+            images = images.cuda()
+            feat = model(images).cpu().numpy()
+            features.append(feat)
+            labels.append(target.numpy())
+    features = np.concatenate(features, axis=0)
+    labels = np.concatenate(labels, axis=0)
+
+    features = torch.from_numpy(features).cuda()
+    labels = torch.from_numpy(labels).cuda()
+    lda = LDA(n_classes=10, lamb=1e-4)
+    lda.forward(features, labels)
+    # classifier.module.weight.data = lda.coef_
+    # classifier.module.bias.data = lda.intercept_
+
     for epoch in range(config.num_epochs):
         if config.distributed:
             train_sampler.set_epoch(epoch)
 
         if config.dataset != 'places':
             block = None
+    
         # train for one epoch
-        train(train_loader, model, classifier, lws_model, criterion, optimizer, epoch, config, logger, block, scheduler)
+        train(train_loader, model, classifier, lws_model, criterion, optimizer, epoch, config, logger, block, scheduler, lda=lda)
 
         # evaluate on validation set
-        acc1, ece = validate(val_loader, model, classifier, lws_model, criterion, config, logger, block)
+        acc1, ece = validate(val_loader, model, classifier, lws_model, criterion, config, logger, block, lda=lda)
         # remember best acc@1 and save checkpoint
         is_best = acc1 > best_acc1
         best_acc1 = max(acc1, best_acc1)
@@ -285,7 +334,7 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
                 }, is_best, model_dir)
 
 
-def train(train_loader, model, classifier, lws_model, criterion, optimizer, epoch, config, logger, block=None):
+def train(train_loader, model, classifier, lws_model, criterion, optimizer, epoch, config, logger, block=None, scheduler=None, lda=None):
     batch_time = AverageMeter('Time', ':6.3f')
     data_time = AverageMeter('Data', ':6.3f')
     losses = AverageMeter('Loss', ':.3f')
@@ -333,6 +382,7 @@ def train(train_loader, model, classifier, lws_model, criterion, optimizer, epoc
                     feat = block(model(images))
                 else:
                     feat = model(images)
+            feat = feat.matmul(lda.scalings_[:, :32])
             output = classifier(feat.detach())
             output = lws_model(output)
             loss = mixup_criterion(criterion, output, targets_a, targets_b, lam)
@@ -343,9 +393,16 @@ def train(train_loader, model, classifier, lws_model, criterion, optimizer, epoc
                     feat = block(model(images))
                 else:
                     feat = model(images)
+            # feat = feat.matmul(lda.scalings_[:, :32])
             output = classifier(feat.detach())
-            output = lws_model(output)
-            loss = criterion(output, target)
+            # output = lws_model(output)
+            loss_sup = 0.5 * criterion(output, target)
+
+            # LDA weight regularization
+            # loss_lda = 0.1 * ((classifier.module.weight - lda.coef_.detach())**2).sum()
+            logits_lda = lda.logit(feat.detach()).detach()
+            loss_lda = 0.5 * DistillKL(3)(output, logits_lda)
+            loss = loss_sup + loss_lda
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), images.size(0))
@@ -366,7 +423,7 @@ def train(train_loader, model, classifier, lws_model, criterion, optimizer, epoc
             progress.display(i, logger)
 
 
-def validate(val_loader, model, classifier, lws_model, criterion, config, logger, block=None):
+def validate(val_loader, model, classifier, lws_model, criterion, config, logger, block=None, lda=None):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.3f')
     top1 = AverageMeter('Acc@1', ':6.3f')
@@ -401,9 +458,15 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
                 feat = block(model(images))
             else:
                 feat = model(images)
+            # feat = feat.matmul(lda.scalings_[:, :32])
             output = classifier(feat)
-            output = lws_model(output)
-            loss = criterion(output, target)
+            # output = lws_model(output)
+            # loss = criterion(output, target)
+
+            logits_lda = lda.logit(feat.detach()).detach()
+            loss_lda = DistillKL(3)(output, logits_lda)
+            loss = loss_lda
+
 
             # measure accuracy and record loss
             acc1, acc5 = accuracy(output, target, topk=(1, 5))
