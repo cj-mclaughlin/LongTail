@@ -344,7 +344,6 @@ def train(train_loader, model, classifier, lws_model, criterion, optimizer, epoc
                 else:
                     feat = model(images)
             output = classifier(feat.detach())
-            output = lws_model(output)
             loss = criterion(output, target)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))

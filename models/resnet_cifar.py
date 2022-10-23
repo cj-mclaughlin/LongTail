@@ -26,6 +26,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 from torch.nn import Parameter
+from torch.autograd import Variable
 
 __all__ = ['ResNet_s', 'resnet20', 'resnet32', 'resnet44', 'resnet56', 'resnet110', 'resnet1202']
 
@@ -164,6 +165,38 @@ class Classifier(nn.Module):
         x = self.fc(x)
         return x
 
+class BayesClassifier(nn.Module):
+    def __init__(self, feat_in, num_classes):
+        super(BayesClassifier, self).__init__()
+        self.feat_in = feat_in
+        self.mu = nn.Sequential(
+            nn.Linear(feat_in, feat_in*2),
+            nn.ReLU(),
+            nn.Linear(feat_in*2, feat_in)
+        )
+        self.sigma = nn.Sequential(
+            nn.Linear(feat_in, feat_in*2),
+            nn.ReLU(),
+            nn.Linear(feat_in*2, feat_in)
+        )
+        self.fc = nn.Linear(feat_in, num_classes)
+        self.apply(_weights_init)
+    
+    def sample(self, num_samples, device="cuda"):
+        z = Variable(torch.randn(num_samples, self.feat_in)).to(device)
+        return z
+
+    def forward(self, x, n=1):
+        mu = self.mu(x)
+        sigma = torch.exp(0.5 * self.sigma(x))
+        zs = torch.zeros_like(mu).cuda()
+        for i in range(n):
+            z = self.sample(x.size(0))
+            z = z * sigma + mu
+            zs = zs + z/n
+        output = self.fc(zs)
+            # outputs = outputs + output / n
+        return mu, sigma, zs, output
 
 def resnet20():
     return ResNet_s(BasicBlock, [3, 3, 3])

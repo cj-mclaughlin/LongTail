@@ -112,7 +112,7 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
 
     if config.dataset == 'cifar10' or config.dataset == 'cifar100':
         model = getattr(resnet_cifar, config.backbone)()
-        classifier = getattr(resnet_cifar, 'Classifier')(feat_in=64, num_classes=config.num_classes)
+        classifier = getattr(resnet_cifar, 'BayesClassifier')(feat_in=64, num_classes=config.num_classes)
 
     elif config.dataset == 'imagenet' or config.dataset == 'ina2018':
         model = getattr(resnet, config.backbone)()
@@ -267,7 +267,7 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
                 feat = block(model(images))
             else:
                 feat = model(images)
-            output = classifier(feat)
+            _, _, _, output = classifier(feat)
             output = lws_model(output)
             loss = criterion(output, target)
 

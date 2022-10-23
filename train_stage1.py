@@ -7,6 +7,7 @@ import warnings
 import numpy as np
 import pprint
 import math
+from numpy import diag
 
 import torch
 import torch.nn as nn
@@ -114,7 +115,7 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
 
     if config.dataset == 'cifar10' or config.dataset == 'cifar100':
         model = getattr(resnet_cifar, config.backbone)()
-        classifier = getattr(resnet_cifar, 'Classifier')(feat_in=64, num_classes=config.num_classes)
+        classifier = getattr(resnet_cifar, 'BayesClassifier')(feat_in=64, num_classes=config.num_classes)
 
     elif config.dataset == 'imagenet' or config.dataset == 'ina2018':
         model = getattr(resnet, config.backbone)()
@@ -216,7 +217,24 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
     if config.distributed:
         train_sampler = dataset.dist_sampler
 
+    sample_per_class = torch.from_numpy(np.unique(train_loader.dataset.targets, return_counts=True)[1]).cuda()
     # define loss function (criterion) and optimizer
+    def balanced_softmax_loss(labels, logits, sample_per_class, reduction="mean"):
+        """Compute the Balanced Softmax Loss between `logits` and the ground truth `labels`.
+        Args:
+        labels: A int tensor of size [batch].
+        logits: A float tensor of size [batch, no_of_classes].
+        sample_per_class: A int tensor of size [no of classes].
+        reduction: string. One of "none", "mean", "sum"
+        Returns:
+        loss: A float tensor. Balanced Softmax Loss.
+        """
+        spc = sample_per_class.type_as(logits)
+        spc = spc.unsqueeze(0).expand(logits.shape[0], -1)
+        logits = logits + spc.log()
+        loss = F.cross_entropy(input=logits, target=labels, reduction=reduction)
+        return loss
+    # criterion = lambda x,y: balanced_softmax_loss(logits=x, labels=y, sample_per_class=sample_per_class)
     criterion = nn.CrossEntropyLoss().cuda(config.gpu)
 
     if config.dataset == 'places':
@@ -322,13 +340,18 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, config, 
             if config.dataset == 'places':
                 with torch.no_grad():
                     feat_a = model(images)
-                feat = block(feat_a.detach())
+                mu, s, feat = block(feat_a.detach())
                 output = classifier(feat)
             else:
                 feat = model(images)
-                output = classifier(feat)
-
+                mu, s, _, output = classifier(feat)
+            
             loss = criterion(output, target)
+            # without
+            # * Acc@1 72.020% Acc@5 97.680% HAcc 93.433% MAcc 72.225% TAcc 50.333%.
+            # * ECE   21.938%.
+            # Best Prec@1: 73.570% ECE: 20.368
+            loss += 5*min_mean_distance(mu, s, target)
 
         acc1, acc5 = accuracy(output, target, topk=(1, 5))
         losses.update(loss.item(), images.size(0))
@@ -347,6 +370,13 @@ def train(train_loader, model, classifier, criterion, optimizer, epoch, config, 
         if i % config.print_freq == 0:
             progress.display(i, logger)
 
+def min_mean_distance(means, stds, labels):
+    means = torch.stack([means[labels == i].mean(0) for i in torch.unique(labels)])
+    stds = torch.stack([stds[labels == i].mean(0) for i in torch.unique(labels)])
+    dist = torch.cdist(means, means)
+    mean_loss = torch.triu(dist).sum() / (dist.size(0)**2 - dist.size(0))
+    std_loss = torch.sum(stds)
+    return mean_loss/std_loss
 
 def validate(val_loader, model, classifier, criterion, config, logger, block=None):
     batch_time = AverageMeter('Time', ':6.3f')
@@ -382,7 +412,7 @@ def validate(val_loader, model, classifier, criterion, config, logger, block=Non
             feat = model(images)
             if config.dataset == 'places':
                 feat = block(feat)
-            output = classifier(feat)
+            mu, s, _, output = classifier(feat)
             loss = criterion(output, target)
 
             # measure accuracy and record loss

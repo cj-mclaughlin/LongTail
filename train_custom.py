@@ -1,11 +1,12 @@
 import argparse
 import os
 import random
+import shutil
 import time
 import warnings
 import numpy as np
 import pprint
-from sklearn.linear_model import LogisticRegression
+import math
 
 import torch
 import torch.nn as nn
@@ -22,7 +23,6 @@ from datasets.cifar100 import CIFAR100_LT
 from datasets.places import Places_LT
 from datasets.imagenet import ImageNet_LT
 from datasets.ina2018 import iNa2018
-from lda import LDA
 
 from models import resnet
 from models import resnet_places
@@ -32,14 +32,11 @@ from utils import config, update_config, create_logger
 from utils import AverageMeter, ProgressMeter
 from utils import accuracy, calibration
 
-from methods import LearnableWeightScaling
+from methods import mixup_data, mixup_criterion
 
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis, QuadraticDiscriminantAnalysis
-import seaborn as sns
-import matplotlib.pyplot as plt
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='MiSLAS evaluation')
+    parser = argparse.ArgumentParser(description='MiSLAS training (Stage-1)')
     parser.add_argument('--cfg',
                         help='experiment configure file name',
                         required=True,
@@ -48,14 +45,17 @@ def parse_args():
                         help="Modify config options using the command-line",
                         default=None,
                         nargs=argparse.REMAINDER)
-    parser.add_argument('--priors',
+    parser.add_argument('--loss',
+                        choices=["ce", "meta_softmax", "cb"],
                         help="Modify config options using the command-line",
                         default=None)
-    parser.add_argument('--solver',
+    parser.add_argument('--arch_type',
+                        choices=["standard", "bayesian"],
                         help="Modify config options using the command-line",
                         default="eigen")
-
-
+    parser.add_argument('--bayes_lambda',
+                        type=float,
+                        default=0)
     args = parser.parse_args()
     update_config(config, args)
 
@@ -63,6 +63,7 @@ def parse_args():
 
 
 best_acc1 = 0
+its_ece = 100
 
 
 def main():
@@ -101,11 +102,11 @@ def main():
         mp.spawn(main_worker, nprocs=ngpus_per_node, args=(ngpus_per_node, config, logger))
     else:
         # Simply call main_worker function
-        main_worker(config.gpu, ngpus_per_node, config, logger, model_dir, args)
+        main_worker(config.gpu, ngpus_per_node, config, logger, model_dir)
 
 
-def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
-    global best_acc1
+def main_worker(gpu, ngpus_per_node, config, logger, model_dir):
+    global best_acc1, its_ece
     config.gpu = gpu
 #     start_time = time.strftime("%Y%m%d_%H%M%S", time.localtime())
 
@@ -124,7 +125,7 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
 
     if config.dataset == 'cifar10' or config.dataset == 'cifar100':
         model = getattr(resnet_cifar, config.backbone)()
-        classifier = getattr(resnet_cifar, 'BayesClassifier')(feat_in=64, num_classes=config.num_classes)
+        classifier = getattr(resnet_cifar, 'Classifier')(feat_in=64, num_classes=config.num_classes)
 
     elif config.dataset == 'imagenet' or config.dataset == 'ina2018':
         model = getattr(resnet, config.backbone)()
@@ -133,11 +134,7 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
     elif config.dataset == 'places':
         model = getattr(resnet_places, config.backbone)(pretrained=True)
         classifier = getattr(resnet_places, 'Classifier')(feat_in=2048, num_classes=config.num_classes)
-        block = getattr(resnet_places, 'Bottleneck')(2048, 512, groups=1,
-                                                     base_width=64, dilation=1,
-                                                     norm_layer=nn.BatchNorm2d)
-
-    lws_model = LearnableWeightScaling(num_classes=config.num_classes)
+        block = getattr(resnet_places, 'Bottleneck')(2048, 512, groups=1, base_width=64, dilation=1, norm_layer=nn.BatchNorm2d)
 
     if not torch.cuda.is_available():
         logger.info('using CPU, this will be slow')
@@ -149,7 +146,6 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
             torch.cuda.set_device(config.gpu)
             model.cuda(config.gpu)
             classifier.cuda(config.gpu)
-            lws_model.cuda(config.gpu)
             # When using a single GPU per process and per
             # DistributedDataParallel, we need to divide the batch size
             # ourselves based on the total number of GPUs we have
@@ -157,36 +153,29 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
             config.workers = int((config.workers + ngpus_per_node - 1) / ngpus_per_node)
             model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.gpu])
             classifier = torch.nn.parallel.DistributedDataParallel(classifier, device_ids=[config.gpu])
-            lws_model = torch.nn.parallel.DistributedDataParallel(lws_model, device_ids=[config.gpu])
-
             if config.dataset == 'places':
                 block.cuda(config.gpu)
                 block = torch.nn.parallel.DistributedDataParallel(block, device_ids=[config.gpu])
         else:
             model.cuda()
             classifier.cuda()
-            lws_model.cuda()
             # DistributedDataParallel will divide and allocate batch_size to all
             # available GPUs if device_ids are not set
             model = torch.nn.parallel.DistributedDataParallel(model)
             classifier = torch.nn.parallel.DistributedDataParallel(classifier)
-            lws_model = torch.nn.parallel.DistributedDataParallel(lws_model)
             if config.dataset == 'places':
                 block.cuda()
                 block = torch.nn.parallel.DistributedDataParallel(block)
-
     elif config.gpu is not None:
         torch.cuda.set_device(config.gpu)
         model = model.cuda(config.gpu)
         classifier = classifier.cuda(config.gpu)
-        lws_model = lws_model.cuda(config.gpu)
         if config.dataset == 'places':
             block.cuda(config.gpu)
     else:
         # DataParallel will divide and allocate batch_size to all available GPUs
         model = torch.nn.DataParallel(model).cuda()
         classifier = torch.nn.DataParallel(classifier).cuda()
-        lws_model = torch.nn.DataParallel(lws_model).cuda()
         if config.dataset == 'places':
             block = torch.nn.DataParallel(block).cuda()
 
@@ -200,15 +189,13 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
                 # Map model to be loaded to specified single gpu.
                 loc = 'cuda:{}'.format(config.gpu)
                 checkpoint = torch.load(config.resume, map_location=loc)
+            # config.start_epoch = checkpoint['epoch']
+            best_acc1 = checkpoint['best_acc1']
             if config.gpu is not None:
                 # best_acc1 may be from a checkpoint from a different GPU
                 best_acc1 = best_acc1.to(config.gpu)
             model.load_state_dict(checkpoint['state_dict_model'])
             classifier.load_state_dict(checkpoint['state_dict_classifier'])
-            if config.dataset == 'places':
-                block.load_state_dict(checkpoint['state_dict_block'])
-            if config.mode == 'stage2':
-                lws_model.load_state_dict(checkpoint['state_dict_lws_model'])
             logger.info("=> loaded checkpoint '{}' (epoch {})"
                         .format(config.resume, checkpoint['epoch']))
         else:
@@ -235,44 +222,161 @@ def main_worker(gpu, ngpus_per_node, config, logger, model_dir, args):
         dataset = iNa2018(config.distributed, root=config.data_path,
                           batch_size=config.batch_size, num_works=config.workers)
 
+    train_loader = dataset.train_instance
     val_loader = dataset.eval
-    criterion = nn.CrossEntropyLoss().cuda(config.gpu)
+    if config.distributed:
+        train_sampler = dataset.dist_sampler
 
-    if config.dataset != 'places':
-        block = None
+    sample_per_class = torch.from_numpy(np.unique(train_loader.dataset.targets, return_counts=True)[1]).cuda()
+    # define loss function (criterion) and optimizer
+    def balanced_softmax_loss(labels, logits, sample_per_class, reduction="mean"):
+        """Compute the Balanced Softmax Loss between `logits` and the ground truth `labels`.
+        Args:
+        labels: A int tensor of size [batch].
+        logits: A float tensor of size [batch, no_of_classes].
+        sample_per_class: A int tensor of size [no of classes].
+        reduction: string. One of "none", "mean", "sum"
+        Returns:
+        loss: A float tensor. Balanced Softmax Loss.
+        """
+        spc = sample_per_class.type_as(logits)
+        spc = spc.unsqueeze(0).expand(logits.shape[0], -1)
+        logits = logits + spc.log()
+        loss = F.cross_entropy(input=logits, target=labels, reduction=reduction)
+        return loss
+    criterion = lambda x,y: balanced_softmax_loss(logits=x, labels=y, sample_per_class=sample_per_class)
+    # criterion = nn.CrossEntropyLoss().cuda(config.gpu)
 
-    lda_loader = dataset.lda
-    model.eval()
-    features = []
-    labels = []
-    with torch.no_grad():
-        for i, (images, target) in enumerate(lda_loader):
-            images = images.cuda()
-            feat = model(images)
-            u, s, feat, output = classifier(feat)
-            feat = feat.cpu().numpy()
-            features.append(feat)
-            labels.append(target.numpy())
-    features = np.concatenate(features, axis=0)
-    labels = np.concatenate(labels, axis=0)
+    if config.dataset == 'places':
+        optimizer = torch.optim.SGD([{"params": block.parameters()},
+                                    {"params": classifier.parameters()}], config.lr,
+                                    momentum=config.momentum,
+                                    weight_decay=config.weight_decay)
+    else:
+        optimizer = torch.optim.SGD([{"params": model.parameters()},
+                                    {"params": classifier.parameters()}], config.lr,
+                                    momentum=config.momentum,
+                                    weight_decay=config.weight_decay)
 
-    priors = [1/config.num_classes]*config.num_classes if args.priors == "uniform" else None
-    print(f"Using {args.priors} priors")
-    lda_sklearn = LinearDiscriminantAnalysis(solver=args.solver, priors=priors).fit(features, labels)
+    for epoch in range(config.num_epochs):
+        if config.distributed:
+            train_sampler.set_epoch(epoch)
 
-    features = torch.from_numpy(features).cuda()
-    labels = torch.from_numpy(labels).cuda()
-    lda = LDA(n_classes=config.num_classes, lamb=1e-4)
-    lda.forward(features, labels)
+        adjust_learning_rate(optimizer, epoch, config)
 
-    # lda.coef_ = torch.from_numpy(lda_sklearn.coef_).cuda().float()
-    # lda.intercept_ = torch.from_numpy(lda_sklearn.intercept_).cuda().float()
-    
-    # lda = None
-    validate(val_loader, model, classifier, lws_model, criterion, config, logger, block, lda=lda)
+        if config.dataset != 'places':
+            block = None
+        # train for one epoch
+        train(train_loader, model, classifier, criterion, optimizer, epoch, config, logger, block)
+
+        # evaluate on validation set
+        acc1, ece = validate(val_loader, model, classifier, criterion, config, logger, block)
+
+        # remember best acc@1 and save checkpoint
+        is_best = acc1 > best_acc1
+        best_acc1 = max(acc1, best_acc1)
+        if is_best:
+            its_ece = ece
+        logger.info('Best Prec@1: %.3f%% ECE: %.3f%%\n' % (best_acc1, its_ece))
+
+        if not config.multiprocessing_distributed or (config.multiprocessing_distributed
+                                                      and config.rank % ngpus_per_node == 0):
+            if config.dataset == 'places':
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'state_dict_model': model.state_dict(),
+                    'state_dict_classifier': classifier.state_dict(),
+                    'state_dict_block': block.state_dict(),
+                    'best_acc1': best_acc1,
+                    'its_ece': its_ece,
+                }, is_best, model_dir)
+
+            else:
+                save_checkpoint({
+                    'epoch': epoch + 1,
+                    'state_dict_model': model.state_dict(),
+                    'state_dict_classifier': classifier.state_dict(),
+                    'best_acc1': best_acc1,
+                    'its_ece': its_ece,
+                }, is_best, model_dir)
 
 
-def validate(val_loader, model, classifier, lws_model, criterion, config, logger, block=None, lda=None):
+def train(train_loader, model, classifier, criterion, optimizer, epoch, config, logger, block=None):
+    batch_time = AverageMeter('Time', ':6.3f')
+    data_time = AverageMeter('Data', ':6.3f')
+    losses = AverageMeter('Loss', ':.3f')
+    top1 = AverageMeter('Acc@1', ':6.3f')
+    top5 = AverageMeter('Acc@5', ':6.3f')
+    progress = ProgressMeter(
+        len(train_loader),
+        [batch_time, losses, top1, top5],
+        prefix="Epoch: [{}]".format(epoch))
+
+    # switch to train mode
+    if config.dataset == 'places':
+        model.eval()
+        block.train()
+    else:
+        model.train()
+    classifier.train()
+
+    training_data_num = len(train_loader.dataset)
+    end_steps = int(training_data_num / train_loader.batch_size)
+
+    end = time.time()
+    for i, (images, target) in enumerate(train_loader):
+        if i > end_steps:
+            break
+
+        # measure data loading time
+        data_time.update(time.time() - end)
+
+        if torch.cuda.is_available():
+            images = images.cuda(config.gpu, non_blocking=True)
+            target = target.cuda(config.gpu, non_blocking=True)
+
+        if config.mixup is True:
+            images, targets_a, targets_b, lam = mixup_data(images, target, alpha=config.alpha)
+            if config.dataset == 'places':
+                with torch.no_grad():
+                    feat_a = model(images)
+                feat = block(feat_a.detach())
+                output = classifier(feat)
+            else:
+                feat = model(images)
+                output = classifier(feat)
+            loss = mixup_criterion(criterion, output, targets_a, targets_b, lam)
+        else:
+            if config.dataset == 'places':
+                with torch.no_grad():
+                    feat_a = model(images)
+                feat = block(feat_a.detach())
+                output = classifier(feat)
+            else:
+                feat = model(images)
+                output = classifier(feat)
+
+            loss = criterion(output, target)
+
+        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        losses.update(loss.item(), images.size(0))
+        top1.update(acc1[0], images.size(0))
+        top5.update(acc5[0], images.size(0))
+
+        # compute gradient and do SGD step
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+
+        # measure elapsed time
+        batch_time.update(time.time() - end)
+        end = time.time()
+
+        if i % config.print_freq == 0:
+            progress.display(i, logger)
+
+
+def validate(val_loader, model, classifier, criterion, config, logger, block=None):
     batch_time = AverageMeter('Time', ':6.3f')
     losses = AverageMeter('Loss', ':.3f')
     top1 = AverageMeter('Acc@1', ':6.3f')
@@ -303,17 +407,10 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
                 target = target.cuda(config.gpu, non_blocking=True)
 
             # compute output
+            feat = model(images)
             if config.dataset == 'places':
-                feat = block(model(images))
-            else:
-                feat = model(images)
-
-            if lda is not None:
-                mu, s, z, output = classifier(feat)
-                output = lda.logit(z)
-            else:
-                output = classifier(feat)
-            output = lws_model(output)
+                feat = block(feat)
+            output = classifier(feat)
             loss = criterion(output, target)
 
             # measure accuracy and record loss
@@ -329,7 +426,6 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
             correct = correct + (target_one_hot + predict_one_hot == 2).sum(dim=0).to(torch.float)
 
             prob = torch.softmax(output, dim=1)
-            # prob = lda.predict_proba(feat)
             confidence_part, pred_class_part = torch.max(prob, dim=1)
             confidence = np.append(confidence, confidence_part.cpu().numpy())
             pred_class = np.append(pred_class, pred_class_part.cpu().numpy())
@@ -344,42 +440,43 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
 
         acc_classes = correct / class_num
         head_acc = acc_classes[config.head_class_idx[0]:config.head_class_idx[1]].mean() * 100
+
         med_acc = acc_classes[config.med_class_idx[0]:config.med_class_idx[1]].mean() * 100
         tail_acc = acc_classes[config.tail_class_idx[0]:config.tail_class_idx[1]].mean() * 100
-
         logger.info('* Acc@1 {top1.avg:.3f}% Acc@5 {top5.avg:.3f}% HAcc {head_acc:.3f}% MAcc {med_acc:.3f}% TAcc {tail_acc:.3f}%.'.format(top1=top1, top5=top5, head_acc=head_acc, med_acc=med_acc, tail_acc=tail_acc))
 
         cal = calibration(true_class, pred_class, confidence, num_bins=15)
         logger.info('* ECE   {ece:.3f}%.'.format(ece=cal['expected_calibration_error'] * 100))
 
-        # model_name = config.resume.split(".")[0]
-        # w = classifier.module.fc.weight.cpu().numpy()
-        # w = w / np.linalg.norm(w, axis=1, ord=2, keepdims=True)
-        # norms = []
-        # for d in range(w.shape[0]):
-        #     norms.append(np.linalg.norm(w[d], ord=2))
-        # print(np.mean(norms), np.std(norms))
-        # wwt = w.dot(w.T)
-        # sns.heatmap(wwt, cbar=False, annot=True)
-        # plt.title("Softmax Classifier WWT (l2-normed)")
-        # plt.savefig(model_name+"softmax.png")
-        # plt.show()
-
-        # if lda is not None:
-        #     w_lda = lda.coef_.cpu().numpy()
-        #     w_lda = w_lda / np.linalg.norm(w_lda, axis=1, ord=2, keepdims=True)
-        #     norms = []
-        #     for d in range(w.shape[0]):
-        #         norms.append(np.linalg.norm(w_lda[d], ord=2))
-        #     print(np.mean(norms), np.std(norms))
-        #     wwt_lda = w_lda.dot(w_lda.T)
-        #     sns.heatmap(wwt_lda, cbar=False, annot=True)
-        #     plt.title("LDA WWT (l2-normed)")
-        #     plt.savefig(model_name+"lda.png")
-        #     plt.show()
-
-
     return top1.avg, cal['expected_calibration_error'] * 100
+
+
+def save_checkpoint(state, is_best, model_dir):
+    filename = model_dir + '/current.pth.tar'
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, model_dir + '/model_best.pth.tar')
+
+
+def adjust_learning_rate(optimizer, epoch, config):
+    """Sets the learning rate"""
+    if config.cos:
+        lr_min = 0
+        lr_max = config.lr
+        lr = lr_min + 0.5 * (lr_max - lr_min) * (1 + math.cos(epoch / config.num_epochs * 3.1415926535))
+    else:
+        epoch = epoch + 1
+        if epoch <= 5:
+            lr = config.lr * epoch / 5
+        elif epoch > 180:
+            lr = config.lr * 0.01
+        elif epoch > 160:
+            lr = config.lr * 0.1
+        else:
+            lr = config.lr
+
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 
 if __name__ == '__main__':
