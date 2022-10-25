@@ -441,6 +441,10 @@ def validate(val_loader, model, classifier, lws_model, criterion, config, logger
 
     return top1.avg, cal['expected_calibration_error'] * 100
 
+def initialize_W(in_dim, out_dim): #in_dim=feature_dim, out_dim=num_classes
+    W = torch.rand((out_dim, in_dim), requires_grad=True)
+    W = F.normalize(W, p=2.0, dim=1)
+    return W
 
 def save_checkpoint(state, is_best, model_dir):
     filename = model_dir + '/current.pth.tar'
